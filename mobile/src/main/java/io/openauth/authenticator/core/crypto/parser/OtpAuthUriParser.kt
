@@ -1,0 +1,146 @@
+/*
+ * Copyright (c) 2026 OpenAuth Authenticator
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.openauth.authenticator.core.crypto.parser
+
+import io.openauth.authenticator.core.crypto.otp.*
+import io.openauth.authenticator.core.crypto.util.Base32Decoder
+import java.net.URI
+import java.net.URLDecoder
+import java.util.Locale
+
+object OtpAuthUriParser {
+
+    fun parse(uri: String): ParsedOtpAuthUri {
+        val parsed = URI(uri)
+
+        require(parsed.scheme.equals("otpauth", true)) {
+            "Invalid OTP URI scheme"
+        }
+
+        val type = when (parsed.host?.lowercase(Locale.ROOT)) {
+            "totp" -> OtpType.TOTP
+            "hotp" -> OtpType.HOTP
+            else -> error("Unsupported OTP type")
+        }
+
+        val label = decode(parsed.path.removePrefix("/"))
+        val labelParts = label.split(':', limit = 2)
+        val issuerFromLabel = labelParts.takeIf { it.size == 2 }?.first()
+        val account = labelParts.last()
+
+        val params = parseQuery(parsed.rawQuery)
+        val issuer = params["issuer"] ?: issuerFromLabel
+
+        if (params["issuer"] != null && issuerFromLabel != null) {
+            require(params["issuer"] == issuerFromLabel) {
+                "Issuer mismatch between label and parameters"
+            }
+        }
+
+        val secret = Base32Decoder.decode(
+            params["secret"] ?: error("Missing secret")
+        )
+
+        val counter = params["counter"]?.toLongOrNull() ?: 0L
+
+        if (type == OtpType.HOTP) {
+            require(params.containsKey("counter")) {
+                "HOTP requires counter"
+            }
+        }
+
+        return ParsedOtpAuthUri(
+            type = type,
+            secret = secret,
+            issuer = issuer,
+            accountName = account,
+            algorithm = params["algorithm"]
+                ?.let(OtpAlgorithm::fromLabel)
+                ?: OtpAlgorithm.DEFAULT,
+            digits = params["digits"]
+                ?.toIntOrNull()
+                ?.let(::OtpDigits)
+                ?: OtpDigits.DEFAULT,
+            period = params["period"]
+                ?.toLongOrNull()
+                ?.let(OtpPeriod::ofSeconds)
+                ?: OtpPeriod.DEFAULT,
+            counter = counter
+        )
+    }
+
+    private fun parseQuery(query: String?): Map<String, String> {
+        if (query == null) return emptyMap()
+
+        return query
+            .split("&")
+            .filter { it.isNotBlank() }
+            .associate {
+                val parts = it.split("=", limit = 2)
+                decode(parts[0]).lowercase(Locale.ROOT) to
+                decode(parts.getOrElse(1) { "" })
+            }
+    }
+
+    private fun decode(value: String): String {
+        return URLDecoder.decode(value, Charsets.UTF_8)
+    }
+}
+
+enum class OtpType { TOTP, HOTP, STEAM }
+
+class ParsedOtpAuthUri(
+    val type: OtpType,
+    secret: ByteArray,
+    val issuer: String?,
+    val accountName: String,
+    val algorithm: OtpAlgorithm,
+    val digits: OtpDigits,
+    val period: OtpPeriod,
+    val counter: Long
+) {
+    val secret: ByteArray = secret.clone()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ParsedOtpAuthUri) return false
+        return type == other.type &&
+               secret.contentEquals(other.secret) &&
+               issuer == other.issuer &&
+               accountName == other.accountName &&
+               algorithm == other.algorithm &&
+               digits == other.digits &&
+               period == other.period &&
+               counter == other.counter
+    }
+
+    override fun hashCode(): Int {
+        var result = type.hashCode()
+        result = 31 * result + secret.contentHashCode()
+        result = 31 * result + (issuer?.hashCode() ?: 0)
+        result = 31 * result + accountName.hashCode()
+        result = 31 * result + algorithm.hashCode()
+        result = 31 * result + digits.hashCode()
+        result = 31 * result + period.hashCode()
+        result = 31 * result + counter.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "ParsedOtpAuthUri(secret=<redacted>)"
+    }
+}
