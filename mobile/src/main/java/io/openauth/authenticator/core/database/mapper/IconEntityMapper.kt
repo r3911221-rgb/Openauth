@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2026 OpenAuth Authenticator
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.openauth.authenticator.core.database.mapper
+
+import io.openauth.authenticator.core.database.entity.IconEntity
+import javax.inject.Inject
+
+class IconEntityMapper @Inject constructor() {
+
+    fun toDomain(entity: IconEntity): IconModel {
+        return IconModel(
+            id = entity.id,
+            issuer = entity.issuer,
+            mimeType = entity.mimeType,
+            encryptedData = entity.encryptedData,
+            source = entity.source,
+            createdAt = entity.createdAt
+        )
+    }
+
+    fun toEntity(model: IconModel): IconEntity {
+        return IconEntity(
+            id = model.id,
+            issuer = model.issuer,
+            mimeType = model.mimeType,
+            encryptedData = model.encryptedData,
+            source = model.source,
+            createdAt = model.createdAt
+        )
+    }
+}
+
+data class IconModel(
+    val id: String,
+    val issuer: String,
+    val mimeType: String,
+    val encryptedData: ByteArray,
+    val source: String,
+    val createdAt: Long
+)
