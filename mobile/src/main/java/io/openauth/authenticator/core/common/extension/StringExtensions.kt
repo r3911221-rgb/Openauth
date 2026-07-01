@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-package io.openauth.authenticator.core.common.dispatcher
+package io.openauth.authenticator.core.common.extension
 
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import javax.inject.Inject
-
-class DefaultDispatcherProvider @Inject constructor() : DispatcherProvider {
-    override val main: CoroutineDispatcher = Dispatchers.Main
-    override val io: CoroutineDispatcher = Dispatchers.IO
-    override val default: CoroutineDispatcher = Dispatchers.Default
-    override val unconfined: CoroutineDispatcher = Dispatchers.Unconfined
+fun String.isBase32(): Boolean {
+    val cleaned = uppercase().replace("=", "").replace(" ", "")
+    return cleaned.all { it in "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567" }
 }
+
+fun String.truncate(maxLength: Int, ellipsis: String = "..."): String {
+    if (length <= maxLength) return this
+    return take(maxLength - ellipsis.length) + ellipsis
+}
+
+fun String?.orEmpty(): String = this ?: ""
+fun String.toNullIfBlank(): String? = ifBlank { null }
