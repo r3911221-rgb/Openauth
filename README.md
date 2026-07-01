@@ -67,4 +67,4 @@ OpenAuth is a production-grade authenticator app that generates secure one-time 
 
 ## 🏗️ Architecture
 
-OpenAuth follows **Clean Architecture** with a single `app/` module:
+OpenAuth follows **Clean Architecture** with a single `mobile/` module:
